@@ -4,17 +4,22 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
+import { signedUrl } from '@/lib/storage';
 import { VISUALIZATION_PRESETS, type DesignStatus } from '@/lib/types/db';
 import { BeforeAfterSlider } from '@/components/BeforeAfterSlider';
 import { ProgressSteps } from '@/components/ProgressSteps';
 import { Button } from '@/components/ui/Button';
+
+const RENDER_BUCKET = 'renders';
 
 interface DesignSummary {
   id: string;
   preset: string | null;
   lighting_style: string;
   status: DesignStatus;
-  rendered_image_url: string | null;
+  rendered_image_path: string | null;
+  /** Pre-signed by the server for the initial load only; never trusted after that. */
+  rendered_image_url?: string | null;
 }
 
 interface Props {
@@ -39,10 +44,51 @@ export function VisualizationResult({
   const [error, setError] = useState<string | null>(null);
   const [advancing, setAdvancing] = useState(false);
 
-  const active = useMemo(
-    () => designs.find((d) => d.id === activeId) ?? designs.find((d) => d.rendered_image_url) ?? null,
-    [activeId, designs],
-  );
+  // renders is a private bucket — a signed URL is minted client-side (RLS on
+  // storage.objects still scopes it to this company) the moment a path
+  // becomes available, and cached here rather than re-signed on every render.
+  const [urls, setUrls] = useState<Record<string, string>>(() => {
+    const seed: Record<string, string> = {};
+    for (const d of initialDesigns) {
+      if (d.rendered_image_url) seed[d.id] = d.rendered_image_url;
+    }
+    return seed;
+  });
+
+  useEffect(() => {
+    const missing = designs.filter(
+      (d) => d.status === 'complete' && d.rendered_image_path && !urls[d.id],
+    );
+    if (missing.length === 0) return;
+
+    const supabase = createClient();
+    let cancelled = false;
+
+    void Promise.all(
+      missing.map(async (d) => {
+        const url = await signedUrl(supabase, RENDER_BUCKET, d.rendered_image_path);
+        return [d.id, url] as const;
+      }),
+    ).then((pairs) => {
+      if (cancelled) return;
+      setUrls((current) => {
+        const next = { ...current };
+        for (const [id, url] of pairs) if (url) next[id] = url;
+        return next;
+      });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [designs, urls]);
+
+  const active = useMemo(() => {
+    const byId = designs.find((d) => d.id === activeId && urls[d.id]);
+    if (byId) return { design: byId, url: urls[byId.id] };
+    const anyRendered = designs.find((d) => urls[d.id]);
+    return anyRendered ? { design: anyRendered, url: urls[anyRendered.id] } : null;
+  }, [activeId, designs, urls]);
 
   /** The design row backing a given preset chip, if one exists. */
   const designForPreset = useCallback(
@@ -82,7 +128,7 @@ export function VisualizationResult({
     const poll = setInterval(async () => {
       const { data } = await supabase
         .from('designs')
-        .select('id, preset, lighting_style, status, rendered_image_url')
+        .select('id, preset, lighting_style, status, rendered_image_path')
         .eq('quote_id', quoteId);
       if (data) setDesigns(data as DesignSummary[]);
     }, 3500);
@@ -97,7 +143,7 @@ export function VisualizationResult({
     async (preset: string) => {
       const existing = designForPreset(preset);
 
-      if (existing?.status === 'complete' && existing.rendered_image_url) {
+      if (existing?.status === 'complete' && existing.rendered_image_path) {
         setActiveId(existing.id);
         return;
       }
@@ -127,7 +173,7 @@ export function VisualizationResult({
           preset,
           lighting_style: preset,
           status: 'processing',
-          rendered_image_url: null,
+          rendered_image_path: null,
         },
       ]);
     },
@@ -135,14 +181,14 @@ export function VisualizationResult({
   );
 
   const buildQuote = useCallback(async () => {
-    if (!active?.rendered_image_url) return;
+    if (!active) return;
     setAdvancing(true);
     setError(null);
 
     const supabase = createClient();
     const { error: updateError } = await supabase
       .from('quotes')
-      .update({ selected_design_id: active.id })
+      .update({ selected_design_id: active.design.id })
       .eq('id', quoteId);
 
     if (updateError) {
@@ -155,7 +201,7 @@ export function VisualizationResult({
   }, [active, quoteId, router]);
 
   return (
-    <div className="fixed inset-0 flex flex-col bg-ink">
+    <div className="fixed inset-0 flex flex-col bg-luma-surface">
       <header className="relative z-20 shrink-0 px-4 pt-safe">
         <div className="mx-auto max-w-4xl">
           <div className="flex items-center justify-between py-2">
@@ -175,10 +221,10 @@ export function VisualizationResult({
       </header>
 
       <div className="relative flex min-h-0 flex-1 items-center justify-center px-3 py-3">
-        {active?.rendered_image_url ? (
+        {active ? (
           <BeforeAfterSlider
             beforeUrl={originalUrl}
-            afterUrl={active.rendered_image_url}
+            afterUrl={active.url}
             className="max-h-full w-full rounded-3xl bg-black/40 ring-1 ring-white/10"
           />
         ) : (
@@ -195,7 +241,7 @@ export function VisualizationResult({
           <div className="flex gap-2 overflow-x-auto pb-1">
             {VISUALIZATION_PRESETS.map((preset) => {
               const design = designForPreset(preset.key);
-              const isActive = design && design.id === active?.id;
+              const isActive = design && design.id === active?.design.id;
               const isRunning =
                 busyPreset === preset.key || design?.status === 'processing' || design?.status === 'pending';
 
@@ -228,13 +274,7 @@ export function VisualizationResult({
             </p>
           ) : null}
 
-          <Button
-            variant="accent"
-            size="xl"
-            fullWidth
-            onClick={buildQuote}
-            disabled={advancing || !active?.rendered_image_url}
-          >
+          <Button variant="accent" size="xl" fullWidth onClick={buildQuote} disabled={advancing || !active}>
             {advancing ? 'Opening…' : 'BUILD MY QUOTE'}
           </Button>
         </div>

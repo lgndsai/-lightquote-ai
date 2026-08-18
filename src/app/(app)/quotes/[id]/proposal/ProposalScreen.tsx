@@ -3,12 +3,15 @@
 import { useCallback, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import type { Company, Customer, Property, Proposal, Quote } from '@/lib/types/db';
+import type { Company, CompanyMarketingConfig, Customer, Property, Proposal, Quote } from '@/lib/types/db';
 import type { PricingResult } from '@/lib/pricing/engine';
-import { formatCurrency, formatCurrencyPrecise } from '@/lib/pricing/engine';
+import type { LongTermComparison } from '@/lib/marketing';
+import { formatCurrency } from '@/lib/pricing/engine';
 import { acceptProposal, getProposalDocumentUrl } from '../actions';
 import { Button } from '@/components/ui/Button';
 import { ProgressSteps } from '@/components/ProgressSteps';
+import { ValueCards } from '@/components/ValueCards';
+import { BenefitsGrid } from '@/components/BenefitsGrid';
 import { addressLine, customerName, formatDate } from '@/lib/format';
 
 interface Props {
@@ -17,13 +20,14 @@ interface Props {
   customer: Customer;
   property: Property;
   pricing: PricingResult;
-  levelName: string;
-  levelFeatures: string[];
+  adderLabels: string[];
   financeProgramName: string | null;
   salesRepName: string;
   proposal: Proposal | null;
   heroUrl: string | null;
   projectId: string | null;
+  marketing: CompanyMarketingConfig;
+  comparison: LongTermComparison;
 }
 
 export function ProposalScreen({
@@ -32,13 +36,14 @@ export function ProposalScreen({
   customer,
   property,
   pricing,
-  levelName,
-  levelFeatures,
+  adderLabels,
   financeProgramName,
   salesRepName,
   proposal,
   heroUrl,
   projectId,
+  marketing,
+  comparison,
 }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -69,16 +74,32 @@ export function ProposalScreen({
     else setError('The stored proposal document is not available yet.');
   }, [quote.id]);
 
+  if (sold) {
+    return (
+      <SoldConfirmation
+        customerName={customerName(customer)}
+        acceptedBy={proposal?.accepted_by_name ?? null}
+        soldAt={quote.sold_at}
+        total={pricing.total}
+        financing={quote.financing_selected}
+        monthlyPayment={pricing.monthlyPayment}
+        projectId={projectId}
+        onOpenDocument={openDocument}
+        openingDoc={openingDoc}
+      />
+    );
+  }
+
   return (
-    <div className="min-h-dvh bg-ink pb-44">
+    <div className="bg-luma-surface min-h-dvh pb-44">
       <header className="px-4 pt-safe no-print">
         <div className="mx-auto max-w-3xl">
           <div className="flex items-center justify-between py-2">
             <Link
-              href={sold ? '/dashboard' : `/quotes/${quote.id}/present`}
+              href={`/quotes/${quote.id}/present`}
               className="-ml-2 flex h-11 items-center px-2 text-[15px] font-semibold text-white/60"
             >
-              ‹ {sold ? 'Dashboard' : 'Back'}
+              ‹ Back
             </Link>
             <span className="w-14" />
           </div>
@@ -86,267 +107,207 @@ export function ProposalScreen({
         </div>
       </header>
 
-      <main className="mx-auto mt-5 max-w-3xl px-4">
-        <article className="overflow-hidden rounded-3xl bg-white text-ink shadow-2xl">
-          {/* Document header */}
-          <div
-            className="flex items-start justify-between gap-6 px-6 py-6 text-white"
-            style={{ background: 'var(--brand-primary)' }}
-          >
-            <div className="min-w-0">
-              {company.logo_url ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img src={company.logo_url} alt={company.name} className="max-h-11 max-w-44 object-contain" />
-              ) : (
-                <p className="text-xl font-bold tracking-tight">{company.name}</p>
-              )}
-              <p className="mt-2 text-[11px] leading-relaxed text-white/60">
-                {[company.address_line1, [company.city, company.state].filter(Boolean).join(', '), company.zip]
-                  .filter(Boolean)
-                  .join(' · ')}
-                {company.phone ? <><br />{company.phone}</> : null}
-                {company.license_number ? <><br />Lic. {company.license_number}</> : null}
-              </p>
-            </div>
-            <div className="shrink-0 text-right text-[11px] leading-relaxed text-white/60">
-              Proposal {proposal?.proposal_number ?? '—'}
-              <br />
-              Quote {quote.quote_number}
-              <br />
-              {formatDate(proposal?.created_at ?? quote.created_at)}
-            </div>
-          </div>
+      <main className="mx-auto mt-5 max-w-3xl space-y-8 px-4">
+        {heroUrl ? (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img src={heroUrl} alt="Your custom LumaGlow design" className="w-full rounded-3xl object-cover shadow-2xl" />
+        ) : null}
 
-          {heroUrl ? (
+        <div className="text-center">
+          {company.logo_url ? (
             /* eslint-disable-next-line @next/next/no-img-element */
-            <img src={heroUrl} alt="Your home with lighting" className="w-full object-cover" />
+            <img src={company.logo_url} alt={company.name} className="mx-auto mb-3 h-9 max-w-40 object-contain" />
           ) : null}
+          <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-accent-soft">
+            Proposal {proposal?.proposal_number ?? quote.quote_number}
+          </p>
+          <p className="mt-1 text-2xl font-semibold tracking-tight text-white">{customerName(customer)}</p>
+          <p className="text-[13px] text-white/55">{addressLine(property)}</p>
+        </div>
 
-          <div className="space-y-7 px-6 py-7">
-            <section>
-              <DocHeading>Prepared for</DocHeading>
-              <p className="text-2xl font-semibold tracking-tight">{customerName(customer)}</p>
-              <p className="mt-1 text-[14px] text-muted">{addressLine(property)}</p>
-            </section>
+        <section className="grid grid-cols-3 gap-3">
+          <SystemStat label="Linear Feet" value={String(Number(quote.linear_feet))} />
+          <SystemStat label="Track" value={quote.track_color ?? '—'} />
+          <SystemStat label="Features" value={adderLabels.length > 0 ? `${adderLabels.length} added` : 'Standard'} />
+        </section>
 
-            <section className="grid grid-cols-3 gap-2">
-              <DocMetric label="Linear feet" value={String(Number(quote.linear_feet))} />
-              <DocMetric label="System" value={levelName} />
-              <DocMetric label="Track" value={quote.track_color ?? '—'} />
-            </section>
+        <section className="rounded-3xl border border-white/10 bg-white/4 p-6 text-center">
+          {pricing.retailComparison.enabled ? (
+            <div className="mx-auto mb-5 grid max-w-sm grid-cols-3 gap-3 border-b border-white/10 pb-5">
+              <InvestmentStat label={pricing.retailComparison.retailLabel} value={formatCurrency(pricing.retailComparison.retailValue)} strike />
+              <InvestmentStat label={pricing.retailComparison.sellingPriceLabel} value={formatCurrency(pricing.retailComparison.standardValue)} />
+              <InvestmentStat label={pricing.retailComparison.savingsLabel} value={formatCurrency(Math.max(0, pricing.retailComparison.savings))} tone="ok" />
+            </div>
+          ) : null}
+          <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-white/40">
+            {quote.financing_selected ? 'Estimated monthly payment' : 'Total cash price'}
+          </p>
+          <p className="text-luma-gradient mt-1 text-5xl font-bold tracking-tight">
+            {quote.financing_selected
+              ? `${formatCurrency(pricing.monthlyPayment, { maximumFractionDigits: 0 })}/mo`
+              : formatCurrency(pricing.total)}
+          </p>
+          {quote.financing_selected && financeProgramName ? (
+            <p className="mt-1 text-[13px] text-white/45">{financeProgramName}</p>
+          ) : null}
+        </section>
 
-            <section>
-              <DocHeading>Your system</DocHeading>
-              <ul className="space-y-2">
-                {levelFeatures.map((feature) => (
-                  <li key={feature} className="flex items-start gap-2.5 text-[15px] text-ink/80">
-                    <span className="mt-[3px] text-[var(--brand-accent)]" aria-hidden>✦</span>
-                    {feature}
-                  </li>
-                ))}
-              </ul>
-            </section>
+        <ValueCards config={marketing} comparison={comparison} />
+        <BenefitsGrid benefits={marketing.benefits} tone="dark" />
 
-            {company.proposal_benefits.length > 0 ? (
-              <section>
-                <DocHeading>Every installation includes</DocHeading>
-                <ul className="space-y-2">
-                  {company.proposal_benefits.map((benefit) => (
-                    <li key={benefit} className="flex items-start gap-2.5 text-[15px] text-ink/80">
-                      <span className="mt-[3px] text-[var(--brand-accent)]" aria-hidden>✦</span>
-                      {benefit}
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            ) : null}
-
-            <section>
-              <DocHeading>Investment</DocHeading>
-              <dl className="text-[15px]">
-                <Line
-                  label={`${Number(quote.linear_feet)} linear feet of permanent lighting`}
-                  detail={`${formatCurrencyPrecise(pricing.effectivePricePerFoot)} per foot`}
-                  amount={formatCurrencyPrecise(pricing.footageSubtotal)}
-                />
-                {pricing.controllerPrice > 0 ? (
-                  <Line
-                    label={quote.controller_name ?? 'Controller'}
-                    amount={formatCurrencyPrecise(pricing.controllerPrice)}
-                  />
-                ) : null}
-                {pricing.adderLines.map((line) => (
-                  <Line key={line.label} label={line.label} detail={line.detail} amount={formatCurrencyPrecise(line.amount)} />
-                ))}
-                {pricing.discountLines.map((line) => (
-                  <Line
-                    key={line.label}
-                    label={line.label}
-                    detail={line.detail}
-                    amount={`−${formatCurrencyPrecise(line.amount)}`}
-                    credit
-                  />
-                ))}
-                {pricing.dealerFee > 0 ? (
-                  <Line label="Financing program fee" amount={formatCurrencyPrecise(pricing.dealerFee)} />
-                ) : null}
-                {pricing.taxAmount > 0 ? (
-                  <Line
-                    label="Sales tax"
-                    detail={`${(pricing.taxRate * 100).toFixed(3).replace(/\.?0+$/, '')}%`}
-                    amount={formatCurrencyPrecise(pricing.taxAmount)}
-                  />
-                ) : null}
-
-                <div className="mt-3 flex items-baseline justify-between border-t-2 border-[var(--brand-primary)] pt-4">
-                  <dt className="text-[17px] font-bold">Total investment</dt>
-                  <dd className="text-[24px] font-bold tracking-tight">
-                    {formatCurrencyPrecise(pricing.total)}
-                  </dd>
-                </div>
-              </dl>
-
-              {quote.financing_selected && pricing.monthlyPayment > 0 ? (
-                <>
-                  <div className="mt-4 flex items-center justify-between rounded-2xl border border-[var(--brand-accent)] px-5 py-4">
-                    <div>
-                      <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted">
-                        Monthly payment
-                      </p>
-                      <p className="mt-0.5 text-[13px] text-ink/70">{financeProgramName ?? 'Financing'}</p>
-                    </div>
-                    <p className="text-[26px] font-bold tracking-tight">
-                      {formatCurrency(pricing.monthlyPayment, { maximumFractionDigits: 0 })}/mo
-                    </p>
-                  </div>
-                  <p className="mt-2 text-[11px] text-muted">
-                    Payment shown is an estimate based on the selected program and is subject to lender
-                    approval.
-                  </p>
-                </>
-              ) : null}
-            </section>
-
-            <section>
-              <DocHeading>Warranty</DocHeading>
-              <p className="text-[15px] leading-relaxed text-ink/80">{company.warranty_copy}</p>
-            </section>
-
-            {sold ? (
-              <section className="rounded-2xl bg-ok/10 px-5 py-4">
-                <p className="text-[13px] font-bold uppercase tracking-[0.1em] text-ok">Accepted</p>
-                <p className="mt-1 text-[15px] text-ink/80">
-                  {proposal?.accepted_by_name ?? customerName(customer)} on{' '}
-                  {formatDate(quote.sold_at ?? proposal?.accepted_at)}
-                </p>
-              </section>
-            ) : null}
-
-            <p className="border-t border-line pt-4 text-[11px] leading-relaxed text-muted">
-              Prepared by {salesRepName} · {company.name}
-              {company.website ? ` · ${company.website}` : ''}
-            </p>
-          </div>
-        </article>
-
-        <div className="mt-4 space-y-2 no-print">
+        <div className="no-print">
           <Button variant="dark" size="lg" fullWidth onClick={openDocument} disabled={openingDoc}>
-            {openingDoc ? 'Opening…' : 'Open the stored proposal document'}
+            {openingDoc ? 'Opening…' : 'View stored proposal document'}
           </Button>
-          {sold && projectId ? (
-            <Link
-              href={`/projects/${projectId}`}
-              className="flex min-h-14 items-center justify-center rounded-2xl border border-white/20 bg-white/10 font-semibold text-white"
-            >
-              Open the project
-            </Link>
-          ) : null}
         </div>
 
         {error ? (
-          <p role="alert" className="mt-3 rounded-2xl bg-danger/20 px-4 py-3 text-sm font-medium text-red-200">
+          <p role="alert" className="rounded-2xl bg-danger/20 px-4 py-3 text-sm font-medium text-red-200">
             {error}
           </p>
         ) : null}
+
+        <p className="text-center text-[12px] text-white/35">
+          Prepared by {salesRepName} · {company.name}
+        </p>
       </main>
 
-      {/* Acceptance */}
-      {!sold ? (
-        <div className="fixed inset-x-0 bottom-0 z-40 bg-gradient-to-t from-ink via-ink/95 to-transparent px-4 pt-8 pb-safe no-print">
-          <div className="mx-auto max-w-3xl space-y-2.5">
-            {showAccept ? (
-              <div className="rounded-3xl border border-white/12 bg-white/8 p-4 backdrop-blur">
-                <label className="block">
-                  <span className="mb-2 block text-[12px] font-bold uppercase tracking-[0.12em] text-white/55">
-                    Type your name to accept
-                  </span>
-                  <input
-                    value={acceptName}
-                    onChange={(event) => setAcceptName(event.target.value)}
-                    autoCapitalize="words"
-                    className="min-h-14 w-full rounded-2xl border border-white/15 bg-white/10 px-4 text-white placeholder:text-white/40 focus:border-accent focus:outline-none"
-                  />
-                </label>
-                <div className="mt-3 flex gap-2">
-                  <Button variant="dark" size="lg" onClick={() => setShowAccept(false)} className="flex-1">
-                    Cancel
-                  </Button>
-                  <Button
-                    variant="accent"
-                    size="lg"
-                    onClick={accept}
-                    disabled={pending || acceptName.trim().length < 2}
-                    className="flex-[2]"
-                  >
-                    {pending ? 'Saving…' : 'CONFIRM'}
-                  </Button>
-                </div>
+      <div className="fixed inset-x-0 bottom-0 z-40 bg-gradient-to-t from-ink via-ink/95 to-transparent px-4 pt-8 pb-safe no-print">
+        <div className="mx-auto max-w-3xl space-y-2.5">
+          {showAccept ? (
+            <div className="rounded-3xl border border-white/12 bg-white/8 p-4 backdrop-blur">
+              <label className="block">
+                <span className="mb-2 block text-[12px] font-bold uppercase tracking-[0.12em] text-white/55">
+                  Type your name to accept
+                </span>
+                <input
+                  value={acceptName}
+                  onChange={(event) => setAcceptName(event.target.value)}
+                  autoCapitalize="words"
+                  className="min-h-14 w-full rounded-2xl border border-white/15 bg-white/10 px-4 text-white placeholder:text-white/40 focus:border-accent focus:outline-none"
+                />
+              </label>
+              <div className="mt-3 flex gap-2">
+                <Button variant="dark" size="lg" onClick={() => setShowAccept(false)} className="flex-1">
+                  Cancel
+                </Button>
+                <Button
+                  variant="accent"
+                  size="lg"
+                  onClick={accept}
+                  disabled={pending || acceptName.trim().length < 2}
+                  className="flex-[2]"
+                >
+                  {pending ? 'Saving…' : 'CONFIRM'}
+                </Button>
               </div>
-            ) : (
-              <Button variant="accent" size="xl" fullWidth onClick={() => setShowAccept(true)}>
-                ACCEPT THIS PROPOSAL
-              </Button>
-            )}
-          </div>
+            </div>
+          ) : (
+            <Button variant="accent" size="xl" fullWidth onClick={() => setShowAccept(true)}>
+              {quote.financing_selected ? 'CONTINUE WITH FINANCING' : 'ACCEPT DESIGN & CONTINUE'}
+            </Button>
+          )}
         </div>
-      ) : null}
+      </div>
     </div>
   );
 }
 
-function DocHeading({ children }: { children: React.ReactNode }) {
-  return (
-    <h2 className="mb-2.5 text-[11px] font-bold uppercase tracking-[0.14em] text-muted">{children}</h2>
-  );
-}
-
-function DocMetric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-line px-3 py-3 text-center">
-      <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted">{label}</p>
-      <p className="mt-1 truncate text-[17px] font-semibold tracking-tight">{value}</p>
-    </div>
-  );
-}
-
-function Line({
-  label,
-  detail,
-  amount,
-  credit,
+function SoldConfirmation({
+  customerName,
+  acceptedBy,
+  soldAt,
+  total,
+  financing,
+  monthlyPayment,
+  projectId,
+  onOpenDocument,
+  openingDoc,
 }: {
-  label: string;
-  detail?: string;
-  amount: string;
-  credit?: boolean;
+  customerName: string;
+  acceptedBy: string | null;
+  soldAt: string | null;
+  total: number;
+  financing: boolean;
+  monthlyPayment: number;
+  projectId: string | null;
+  onOpenDocument: () => void;
+  openingDoc: boolean;
 }) {
   return (
-    <div className="flex items-start justify-between gap-4 border-b border-line py-3">
-      <dt className={credit ? 'text-ok' : ''}>
-        {label}
-        {detail ? <span className="mt-0.5 block text-[12px] text-muted">{detail}</span> : null}
-      </dt>
-      <dd className={`shrink-0 tabular-nums ${credit ? 'text-ok' : ''}`}>{amount}</dd>
+    <div className="bg-luma-surface flex min-h-dvh flex-col items-center justify-center px-6 text-center">
+      <div className="rise glow-accent flex h-24 w-24 items-center justify-center rounded-full bg-luma-gradient">
+        <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M20 6 9 17l-5-5" />
+        </svg>
+      </div>
+      <h1 className="rise mt-6 text-3xl font-bold tracking-tight text-white">You&rsquo;re all set</h1>
+      <p className="rise mt-2 max-w-xs text-[15px] text-white/60">
+        {acceptedBy ?? customerName} accepted the design{soldAt ? ` on ${formatDate(soldAt)}` : ''}.
+      </p>
+
+      <div className="rise mt-6 rounded-3xl border border-white/10 bg-white/4 px-8 py-5">
+        <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/40">
+          {financing ? 'Monthly payment' : 'Contract value'}
+        </p>
+        <p className="text-luma-gradient mt-1 text-4xl font-bold tracking-tight">
+          {financing ? `${formatCurrency(monthlyPayment, { maximumFractionDigits: 0 })}/mo` : formatCurrency(total)}
+        </p>
+      </div>
+
+      <div className="mt-8 w-full max-w-xs space-y-2.5">
+        {projectId ? (
+          <Link
+            href={`/projects/${projectId}`}
+            className="flex min-h-14 items-center justify-center rounded-2xl bg-luma-gradient font-semibold text-white shadow-lg"
+          >
+            Open the project
+          </Link>
+        ) : null}
+        <Button variant="dark" size="lg" fullWidth onClick={onOpenDocument} disabled={openingDoc}>
+          {openingDoc ? 'Opening…' : 'View proposal document'}
+        </Button>
+        <Link
+          href="/dashboard"
+          className="flex min-h-14 items-center justify-center rounded-2xl border border-white/15 font-semibold text-white/70"
+        >
+          Back to dashboard
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+function SystemStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/4 px-3 py-3 text-center">
+      <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-white/40">{label}</p>
+      <p className="mt-1 truncate text-[15px] font-semibold text-white">{value}</p>
+    </div>
+  );
+}
+
+function InvestmentStat({
+  label,
+  value,
+  strike,
+  tone,
+}: {
+  label: string;
+  value: string;
+  strike?: boolean;
+  tone?: 'ok';
+}) {
+  return (
+    <div>
+      <p className="text-[10px] font-bold uppercase tracking-wide text-white/40">{label}</p>
+      <p
+        className={`mt-1 text-lg font-semibold ${
+          strike ? 'text-white/40 line-through decoration-2' : tone === 'ok' ? 'text-ok' : 'text-white'
+        }`}
+      >
+        {value}
+      </p>
     </div>
   );
 }

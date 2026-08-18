@@ -20,7 +20,7 @@ const KINDS: { key: CatalogKind; label: string; units: PriceUnit[] }[] = [
 const UNIT_LABEL: Record<PriceUnit, string> = {
   flat: 'Flat',
   per_foot: 'Per foot',
-  each: 'Each',
+  each: 'Quantity',
   percent: 'Percent',
 };
 

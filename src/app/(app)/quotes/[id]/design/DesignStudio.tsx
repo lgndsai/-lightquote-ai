@@ -127,13 +127,10 @@ export function DesignStudio({
         .upload(path, marked, { contentType: 'image/jpeg', upsert: false });
       if (uploadError) throw new Error(uploadError.message);
 
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from(BUCKET).getPublicUrl(path);
-
+      // property-photos is private — only the path is stored, never a URL.
       const { error: updateError } = await supabase
         .from('designs')
-        .update({ marked_image_path: path, marked_image_url: publicUrl })
+        .update({ marked_image_path: path })
         .eq('id', designId);
       if (updateError) throw new Error(updateError.message);
 
@@ -158,7 +155,7 @@ export function DesignStudio({
   }, [companyId, designId, imageUrl, persist, quoteId, router, strokes, style]);
 
   return (
-    <div className="fixed inset-0 flex flex-col bg-ink">
+    <div className="fixed inset-0 flex flex-col bg-luma-surface">
       <header className="relative z-20 shrink-0 px-4 pt-safe">
         <div className="mx-auto max-w-4xl">
           <div className="flex items-center justify-between py-2">

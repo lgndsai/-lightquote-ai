@@ -8,7 +8,12 @@ export const runtime = 'nodejs';
 const schema = z.object({
   design_id: z.string().uuid(),
   status: z.enum(['processing', 'complete', 'failed']),
-  rendered_image_url: z.string().url().optional().nullable(),
+  /**
+   * Path within the private 'renders' bucket, e.g. "{company_id}/{quote_id}/render-<uuid>.jpg".
+   * n8n uploads the finished image itself (with its own Supabase credentials,
+   * never the browser's) and reports back the path — never a bare URL, since
+   * the bucket is private and a URL alone would not be servable.
+   */
   rendered_image_path: z.string().max(500).optional().nullable(),
   error_message: z.string().max(1000).optional().nullable(),
   job_id: z.string().max(200).optional().nullable(),
@@ -40,12 +45,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid payload.' }, { status: 400 });
   }
 
-  const { design_id, status, rendered_image_url, rendered_image_path, error_message, job_id } =
-    parsed.data;
+  const { design_id, status, rendered_image_path, error_message, job_id } = parsed.data;
 
-  if (status === 'complete' && !rendered_image_url) {
+  if (status === 'complete' && !rendered_image_path) {
     return NextResponse.json(
-      { error: 'rendered_image_url is required when status is complete.' },
+      { error: 'rendered_image_path is required when status is complete.' },
       { status: 400 },
     );
   }
@@ -56,7 +60,6 @@ export async function POST(request: Request) {
     .from('designs')
     .update({
       status,
-      rendered_image_url: rendered_image_url ?? null,
       rendered_image_path: rendered_image_path ?? null,
       error_message: error_message ?? null,
       ...(job_id ? { job_id } : {}),

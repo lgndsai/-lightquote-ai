@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { SignupForm } from './SignupForm';
 
-export const metadata = { title: 'Create account — LightQuote AI' };
+export const metadata = { title: 'Create account — LumaGlow' };
 
 export default function SignupPage() {
   return (

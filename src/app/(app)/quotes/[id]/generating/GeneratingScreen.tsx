@@ -50,8 +50,8 @@ export function GeneratingScreen({ quoteId, designId, previewUrl, initialStatus,
 
     const supabase = createClient();
 
-    const apply = (row: { status: DesignStatus; rendered_image_url: string | null; error_message: string | null }) => {
-      if (row.status === 'complete' && row.rendered_image_url) {
+    const apply = (row: { status: DesignStatus; rendered_image_path: string | null; error_message: string | null }) => {
+      if (row.status === 'complete' && row.rendered_image_path) {
         finish();
       } else if (row.status === 'failed') {
         setStatus('failed');
@@ -73,7 +73,7 @@ export function GeneratingScreen({ quoteId, designId, previewUrl, initialStatus,
     const poll = setInterval(async () => {
       const { data } = await supabase
         .from('designs')
-        .select('status, rendered_image_url, error_message')
+        .select('status, rendered_image_path, error_message')
         .eq('quote_id', quoteId)
         .order('created_at', { ascending: false })
         .limit(1);
@@ -124,7 +124,7 @@ export function GeneratingScreen({ quoteId, designId, previewUrl, initialStatus,
   const failed = status === 'failed' || timedOut;
 
   return (
-    <div className="fixed inset-0 flex flex-col overflow-hidden bg-ink">
+    <div className="fixed inset-0 flex flex-col overflow-hidden bg-luma-surface">
       {previewUrl ? (
         <>
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -182,7 +182,7 @@ export function GeneratingScreen({ quoteId, designId, previewUrl, initialStatus,
                 className="pulse-ring absolute inset-0 rounded-full bg-accent/20"
                 style={{ animationDelay: '0.7s' }}
               />
-              <span className="relative h-16 w-16 rounded-full bg-gradient-to-br from-accent-soft to-accent shadow-[0_0_60px_rgba(200,162,74,0.55)]" />
+              <span className="glow-accent relative h-16 w-16 bg-luma-gradient rounded-full" />
             </span>
 
             <h1 className="text-[26px] font-semibold tracking-tight text-white">

@@ -81,14 +81,9 @@ export async function createQuoteAction(
     return { error: propertyError?.message ?? 'Could not save the property.' };
   }
 
-  // Seed the quote with the company's suggested price so the measurement
-  // screen opens pre-filled and the rep can go straight to a number.
-  const { data: pricing } = await supabase
-    .from('company_pricing')
-    .select('suggested_price_per_foot, controller_price')
-    .eq('company_id', company_id)
-    .maybeSingle();
-
+  // The per-foot rate is always the company's standard_price_per_ft — it's
+  // filled in by saveQuotePricing the first time the rep enters footage,
+  // never typed or seeded here.
   const { data: quote, error: quoteError } = await supabase
     .from('quotes')
     .insert({
@@ -97,8 +92,6 @@ export async function createQuoteAction(
       customer_id: customer.id,
       property_id: property.id,
       status: 'draft',
-      price_per_foot: pricing?.suggested_price_per_foot ?? 0,
-      controller_price: pricing?.controller_price ?? 0,
     })
     .select('id')
     .single();

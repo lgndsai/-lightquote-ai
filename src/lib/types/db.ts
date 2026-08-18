@@ -45,6 +45,7 @@ export interface Company {
   name: string;
   logo_url: string | null;
   brand_primary: string;
+  brand_secondary: string;
   brand_accent: string;
   phone: string | null;
   email: string | null;
@@ -183,14 +184,25 @@ export interface ProposalLevel {
 export interface CompanyPricing {
   id: string;
   company_id: string;
+  /** @deprecated superseded by standard_price_per_ft — kept for backward compatibility. */
   suggested_price_per_foot: number;
+  /** @deprecated no longer surfaced in the simplified rep quoting screen. */
   min_price_per_foot: number;
+  /** @deprecated controller selection was dropped from the simplified quoting flow. */
   controller_price: number;
   tax_rate: number;
   tax_on_labor: boolean;
   labor_percent_of_price: number;
   dealer_fee_percent: number;
   minimum_job_price: number;
+  /** Comparison-only rate — never used to compute the actual charged total. */
+  retail_price_per_ft: number;
+  /** The real per-foot selling rate. Single source of truth for pricing. */
+  standard_price_per_ft: number;
+  show_retail_comparison: boolean;
+  retail_label: string;
+  selling_price_label: string;
+  savings_label: string;
   proposal_levels: ProposalLevel[];
   created_at: string;
   updated_at: string;
@@ -269,4 +281,52 @@ export interface QuoteListItem extends Quote {
   customers: Pick<Customer, 'first_name' | 'last_name'> | null;
   properties: Pick<Property, 'address_line1' | 'city' | 'state' | 'zip'> | null;
   projects: Pick<Project, 'status'>[] | null;
+}
+
+export interface BenefitCard {
+  title: string;
+  body: string;
+}
+
+/**
+ * "THE VALUE OF GOING PERMANENT" — every number and word in the three
+ * customer-facing value cards is configured here, per company. Nothing
+ * about long-term cost, resale or security copy is hardcoded in a screen.
+ */
+export interface CompanyMarketingConfig {
+  id: string;
+  company_id: string;
+
+  show_long_term_comparison: boolean;
+  alternative_name: string;
+  alternative_installed_cost: number;
+  alternative_replacement_interval_years: number;
+  comparison_horizon_years: number;
+  comparison_disclaimer: string;
+
+  show_resale_stat: boolean;
+  resale_headline: string;
+  resale_label: string;
+  resale_body: string;
+  resale_source: string;
+  resale_disclaimer: string;
+
+  show_secondary_resale_stat: boolean;
+  secondary_resale_headline: string;
+  secondary_resale_label: string;
+  secondary_resale_body: string;
+  secondary_resale_source: string;
+  secondary_resale_disclaimer: string;
+
+  show_security_stat: boolean;
+  security_headline: string;
+  security_body: string;
+  security_secondary_line: string;
+  security_source: string;
+  security_disclaimer: string;
+
+  benefits: BenefitCard[];
+
+  created_at: string;
+  updated_at: string;
 }

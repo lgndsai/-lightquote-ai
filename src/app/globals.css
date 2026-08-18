@@ -1,27 +1,29 @@
 @import "tailwindcss";
 
 /* =====================================================================
-   LightQuote AI design tokens
+   LumaGlow design tokens
 
    Two moods on purpose:
-     - "ink"  : deep, cinematic surfaces for the customer-facing screens
-                (photo, design, visualization, presentation, proposal)
-     - "paper": clean and fast for the rep/admin working screens
+     - "ink"  : deep charcoal-purple, cinematic surfaces for the
+                customer-facing screens (photo, design, visualization,
+                presentation, proposal) — glowing violet-to-magenta accents
+     - "paper": clean, neutral and fast for the rep/admin working screens —
+                usability first, no gradients, minimal color
    ===================================================================== */
 
 @theme {
-  --color-paper: #f6f7f9;
+  --color-paper: #f7f7f9;
   --color-card: #ffffff;
-  --color-line: #e4e7ec;
-  --color-ink: #0b0f19;
-  --color-ink-soft: #131a2a;
-  --color-ink-line: #232c40;
-  --color-muted: #667085;
-  --color-muted-dark: #93a0b8;
+  --color-line: #e5e4ea;
+  --color-ink: #120b1f;
+  --color-ink-soft: #1d1330;
+  --color-ink-line: #33254f;
+  --color-muted: #6b6779;
+  --color-muted-dark: #a89fc2;
 
-  --color-brand: #0b0f19;
-  --color-accent: #c8a24a;
-  --color-accent-soft: #e6cf94;
+  --color-accent: #e0299b;
+  --color-accent-soft: #f472b6;
+  --color-violet: #7c3aed;
 
   --color-ok: #0e9f6e;
   --color-warn: #d97706;
@@ -35,9 +37,37 @@
 
 :root {
   color-scheme: light;
-  /* Overridden per-company at runtime by <BrandProvider>. */
-  --brand-primary: #0b0f19;
-  --brand-accent: #c8a24a;
+  /* LumaGlow defaults — overridden per-company at runtime by <BrandProvider>,
+     and mirrored as the Postgres column defaults so a freshly provisioned
+     company starts on-brand before ever touching Admin. */
+  --brand-primary: #7c3aed;
+  --brand-secondary: #170f26;
+  --brand-accent: #e0299b;
+}
+
+/* Premium gradient surface for customer-facing screens — deep charcoal-purple
+   into the company's own primary/secondary, so every tenant's dark screens
+   stay on-brand without any component hardcoding a color. */
+.bg-luma-surface {
+  background:
+    radial-gradient(120% 90% at 15% 0%, color-mix(in srgb, var(--brand-primary) 32%, transparent), transparent 60%),
+    radial-gradient(120% 90% at 100% 100%, color-mix(in srgb, var(--brand-accent) 22%, transparent), transparent 55%),
+    linear-gradient(180deg, var(--brand-secondary), #0a0612 85%);
+}
+
+.bg-luma-gradient {
+  background-image: linear-gradient(135deg, var(--brand-primary), var(--brand-accent));
+}
+
+.text-luma-gradient {
+  background-image: linear-gradient(135deg, var(--brand-accent), var(--brand-primary));
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+.glow-accent {
+  box-shadow: 0 0 60px -8px color-mix(in srgb, var(--brand-accent) 55%, transparent);
 }
 
 html,
@@ -86,7 +116,7 @@ textarea {
 }
 
 .shimmer {
-  background: linear-gradient(90deg, #1a2234 0%, #2a3550 50%, #1a2234 100%);
+  background: linear-gradient(90deg, #1d1330 0%, #34205a 50%, #1d1330 100%);
   background-size: 600px 100%;
   animation: shimmer 1.6s linear infinite;
 }

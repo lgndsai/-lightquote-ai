@@ -6,7 +6,7 @@ import { MeasureForm } from './MeasureForm';
 import type { QuoteAdder } from '@/lib/types/db';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'System measurements — LightQuote AI' };
+export const metadata = { title: 'System measurements — LumaGlow' };
 
 export default async function MeasurePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

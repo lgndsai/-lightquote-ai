@@ -1,67 +1,94 @@
 'use client';
 
 import { useActionState } from 'react';
-import type { CompanyPricing, ProposalLevel } from '@/lib/types/db';
+import type { CompanyPricing } from '@/lib/types/db';
 import { updatePricing, type AdminState } from '../actions';
-import { TextField, TextArea } from '@/components/ui/Field';
+import { TextField } from '@/components/ui/Field';
 import { FormMessage, SubmitButton } from '@/components/ui/SubmitBar';
 import { Card, SectionTitle } from '@/components/ui/Card';
 
-export function PricingForm({
-  pricing,
-  proposalLevels,
-}: {
-  pricing: CompanyPricing;
-  proposalLevels: ProposalLevel[];
-}) {
+export function PricingForm({ pricing }: { pricing: CompanyPricing }) {
   const [state, action] = useActionState<AdminState, FormData>(updatePricing, {});
 
   return (
     <main className="mx-auto max-w-3xl px-4 pt-5 pb-16">
       <h1 className="mb-1 text-[26px] font-semibold tracking-tight text-ink">Pricing</h1>
       <p className="mb-5 text-[15px] text-muted">
-        Every quote screen reads these values. Nothing here is hardcoded in the app.
+        The rep quoting screen reads these values directly — nothing about price lives in a
+        component. standard_price_per_ft is the one rate every job is calculated from.
       </p>
 
       <form action={action} className="space-y-6">
         <div>
-          <SectionTitle>Per foot</SectionTitle>
+          <SectionTitle>Per foot rate</SectionTitle>
           <Card className="grid grid-cols-2 gap-3">
             <TextField
-              name="suggested_price_per_foot"
-              label="Suggested"
+              name="retail_price_per_ft"
+              label="Retail price / ft"
               type="number"
               step="0.01"
               inputMode="decimal"
-              defaultValue={String(pricing.suggested_price_per_foot)}
-              hint="$"
+              defaultValue={String(pricing.retail_price_per_ft)}
+              hint="$ — comparison only"
               required
             />
             <TextField
-              name="min_price_per_foot"
-              label="Minimum"
+              name="standard_price_per_ft"
+              label="Standard selling price / ft"
               type="number"
               step="0.01"
               inputMode="decimal"
-              defaultValue={String(pricing.min_price_per_foot)}
-              hint="$"
+              defaultValue={String(pricing.standard_price_per_ft)}
+              hint="$ — the real rate"
               required
             />
           </Card>
         </div>
 
         <div>
-          <SectionTitle>Defaults and fees</SectionTitle>
+          <SectionTitle>Value presentation</SectionTitle>
           <Card className="space-y-3">
-            <TextField
-              name="controller_price"
-              label="Default controller price"
-              type="number"
-              step="0.01"
-              inputMode="decimal"
-              defaultValue={String(pricing.controller_price)}
-              hint="$"
-            />
+            <label className="flex min-h-14 items-center justify-between gap-4 rounded-2xl border border-line px-4">
+              <span>
+                <span className="block text-[15px] font-semibold text-ink">Show retail comparison</span>
+                <span className="block text-[12px] text-muted">
+                  Displays retail vs. standard price and the savings on the quoting and
+                  presentation screens.
+                </span>
+              </span>
+              <input
+                type="checkbox"
+                name="show_retail_comparison"
+                defaultChecked={pricing.show_retail_comparison}
+                className="h-6 w-6 shrink-0 accent-[var(--brand-primary)]"
+              />
+            </label>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <TextField
+                name="retail_label"
+                label="Retail label"
+                defaultValue={pricing.retail_label}
+                required
+              />
+              <TextField
+                name="selling_price_label"
+                label="Selling price label"
+                defaultValue={pricing.selling_price_label}
+                required
+              />
+              <TextField
+                name="savings_label"
+                label="Savings label"
+                defaultValue={pricing.savings_label}
+                required
+              />
+            </div>
+          </Card>
+        </div>
+
+        <div>
+          <SectionTitle>Fees</SectionTitle>
+          <Card className="space-y-3">
             <TextField
               name="minimum_job_price"
               label="Minimum job price"
@@ -78,7 +105,7 @@ export function PricingForm({
               step="0.0001"
               inputMode="decimal"
               defaultValue={String(pricing.dealer_fee_percent)}
-              hint="0.12 = 12%"
+              hint="0.12 = 12% — applies when a job is financed"
             />
           </Card>
         </div>
@@ -113,23 +140,6 @@ export function PricingForm({
               defaultValue={String(pricing.labor_percent_of_price)}
               hint="0.5 = 50%, used when labor is untaxed"
             />
-          </Card>
-        </div>
-
-        <div>
-          <SectionTitle>Proposal levels</SectionTitle>
-          <Card>
-            <TextArea
-              name="proposal_levels"
-              label="Levels (JSON)"
-              defaultValue={JSON.stringify(proposalLevels, null, 2)}
-              className="[&>textarea]:font-mono"
-              rows={18}
-            />
-            <p className="mt-2 text-[12px] leading-relaxed text-muted">
-              An array of {'{ key, name, description, price_per_foot_delta, features[] }'}.
-              price_per_foot_delta shifts the rep&rsquo;s per-foot price for that level.
-            </p>
           </Card>
         </div>
 

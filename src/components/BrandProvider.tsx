@@ -7,21 +7,24 @@ const safe = (value: string | null | undefined, fallback: string) =>
 
 /**
  * Applies the company's brand colors as CSS variables for the subtree.
- * Values are hex-validated before they reach the stylesheet.
+ * Values are hex-validated before they reach the stylesheet. Falls back to
+ * the LumaGlow defaults (also the column defaults in Postgres) so a screen
+ * never renders with an unbranded look.
  */
 export function BrandProvider({
   company,
   children,
 }: {
-  company: Pick<Company, 'brand_primary' | 'brand_accent'>;
+  company: Pick<Company, 'brand_primary' | 'brand_secondary' | 'brand_accent'>;
   children: React.ReactNode;
 }) {
   return (
     <div
       style={
         {
-          '--brand-primary': safe(company.brand_primary, '#0B0F19'),
-          '--brand-accent': safe(company.brand_accent, '#C8A24A'),
+          '--brand-primary': safe(company.brand_primary, '#7C3AED'),
+          '--brand-secondary': safe(company.brand_secondary, '#170F26'),
+          '--brand-accent': safe(company.brand_accent, '#E0299B'),
         } as React.CSSProperties
       }
       className="contents"

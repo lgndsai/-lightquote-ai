@@ -9,9 +9,9 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'LightQuote AI',
+  title: 'LumaGlow',
   description: 'Design, visualize and sell permanent exterior lighting in under five minutes.',
-  appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'LightQuote' },
+  appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'LumaGlow' },
   formatDetection: { telephone: false },
 };
 
@@ -22,7 +22,7 @@ export const viewport: Viewport = {
   // The canvas and photo screens break if the page itself can pinch-zoom.
   userScalable: false,
   viewportFit: 'cover',
-  themeColor: '#0B0F19',
+  themeColor: '#170F26',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

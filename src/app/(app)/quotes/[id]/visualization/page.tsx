@@ -3,7 +3,7 @@ import { getQuoteContext } from '@/lib/quotes';
 import { VisualizationResult } from './VisualizationResult';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Visualization — LightQuote AI' };
+export const metadata = { title: 'Visualization — LumaGlow' };
 
 export default async function VisualizationPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -25,6 +25,7 @@ export default async function VisualizationPage({ params }: { params: Promise<{ 
         preset: d.preset,
         lighting_style: d.lighting_style,
         status: d.status,
+        rendered_image_path: d.rendered_image_path,
         rendered_image_url: d.rendered_image_url,
       }))}
     />

@@ -2,7 +2,7 @@ import { getQuoteContext } from '@/lib/quotes';
 import { PhotoCapture } from './PhotoCapture';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Property photo — LightQuote AI' };
+export const metadata = { title: 'Property photo — LumaGlow' };
 
 export default async function PhotoPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

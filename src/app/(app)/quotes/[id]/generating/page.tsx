@@ -3,7 +3,7 @@ import { getQuoteContext } from '@/lib/quotes';
 import { GeneratingScreen } from './GeneratingScreen';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Generating — LightQuote AI' };
+export const metadata = { title: 'Generating — LumaGlow' };
 
 export default async function GeneratingPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

@@ -9,5 +9,5 @@ export default async function AdminPricingPage() {
   const session = await requireRole('admin');
   const config = await loadPricingConfig(session.company.id);
 
-  return <PricingForm pricing={config.pricing} proposalLevels={config.proposalLevels} />;
+  return <PricingForm pricing={config.pricing} />;
 }

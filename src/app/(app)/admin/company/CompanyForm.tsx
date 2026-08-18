@@ -79,10 +79,16 @@ export function CompanyForm({ company }: { company: Company }) {
             ) : null}
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <ColorField name="brand_primary" label="Primary color" defaultValue={company.brand_primary} />
-            <ColorField name="brand_accent" label="Accent color" defaultValue={company.brand_accent} />
+          <div className="grid grid-cols-3 gap-3">
+            <ColorField name="brand_primary" label="Primary" defaultValue={company.brand_primary} />
+            <ColorField name="brand_secondary" label="Secondary" defaultValue={company.brand_secondary} />
+            <ColorField name="brand_accent" label="Accent" defaultValue={company.brand_accent} />
           </div>
+          <p className="text-[12px] leading-relaxed text-muted">
+            Primary and secondary drive the dark gradient behind customer-facing screens; accent
+            highlights buttons, selected states and glow effects. Changes apply everywhere
+            immediately — nothing about pricing or branding is hardcoded per screen.
+          </p>
         </Card>
 
         <div>

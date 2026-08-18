@@ -14,7 +14,7 @@ import {
 import type { Customer, Project, ProjectStatus, Property } from '@/lib/types/db';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Projects — LightQuote AI' };
+export const metadata = { title: 'Projects — LumaGlow' };
 
 const TABS: { key: string; label: string }[] = [
   { key: 'all', label: 'All' },

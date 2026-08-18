@@ -49,6 +49,24 @@ export interface LineItem {
   amount: number;
 }
 
+/**
+ * The "187 ft x $52 retail vs 187 ft x $35 LumaGlow price" headline stat.
+ * Footage only — never adders, controller, dealer fee or tax — so it can
+ * never be read as a discount on the actual invoice. Never manufactured:
+ * if the real total ends up above the retail-footage figure (financed jobs
+ * with a dealer fee, or a job with heavy adders), `savings` goes negative
+ * and callers must NOT present that as a benefit.
+ */
+export interface RetailComparison {
+  enabled: boolean;
+  retailValue: number;
+  standardValue: number;
+  savings: number;
+  retailLabel: string;
+  sellingPriceLabel: string;
+  savingsLabel: string;
+}
+
 export interface PricingResult {
   linearFeet: number;
   /** pricePerFoot after the proposal-level delta. */
@@ -70,6 +88,7 @@ export interface PricingResult {
   financeTermMonths: number | null;
   belowMinimumPricePerFoot: boolean;
   minimumJobPriceApplied: boolean;
+  retailComparison: RetailComparison;
 }
 
 const round2 = (n: number) => Math.round((Number.isFinite(n) ? n : 0) * 100) / 100;
@@ -171,6 +190,18 @@ export function calculateQuote(input: PricingInput): PricingResult {
 
   const payment = input.financing ? monthlyPayment(total, input.financeProgram) : 0;
 
+  const retailValue = round2(linearFeet * num(pricing.retail_price_per_ft));
+  const standardValue = round2(linearFeet * num(pricing.standard_price_per_ft));
+  const retailComparison: RetailComparison = {
+    enabled: Boolean(pricing.show_retail_comparison) && linearFeet > 0,
+    retailValue,
+    standardValue,
+    savings: round2(retailValue - standardValue),
+    retailLabel: pricing.retail_label || 'Retail Value',
+    sellingPriceLabel: pricing.selling_price_label || 'LumaGlow Price',
+    savingsLabel: pricing.savings_label || 'Your Savings',
+  };
+
   return {
     linearFeet,
     effectivePricePerFoot,
@@ -192,6 +223,7 @@ export function calculateQuote(input: PricingInput): PricingResult {
     belowMinimumPricePerFoot:
       linearFeet > 0 && effectivePricePerFoot < num(pricing.min_price_per_foot),
     minimumJobPriceApplied,
+    retailComparison,
   };
 }
 

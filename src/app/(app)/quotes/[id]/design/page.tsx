@@ -4,7 +4,7 @@ import { DesignStudio } from './DesignStudio';
 import type { RooflineStroke } from '@/lib/types/db';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Lighting design — LightQuote AI' };
+export const metadata = { title: 'Lighting design — LumaGlow' };
 
 export default async function DesignPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

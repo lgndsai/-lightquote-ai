@@ -14,6 +14,12 @@ const pricing: CompanyPricing = {
   labor_percent_of_price: 0.5,
   dealer_fee_percent: 0,
   minimum_job_price: 0,
+  retail_price_per_ft: 52,
+  standard_price_per_ft: 35,
+  show_retail_comparison: true,
+  retail_label: 'Retail Value',
+  selling_price_label: 'LumaGlow Price',
+  savings_label: 'Your Savings',
   proposal_levels: [],
   created_at: '',
   updated_at: '',
@@ -155,5 +161,45 @@ describe('pricing engine', () => {
 
   it('splits a zero-APR program evenly across its term', () => {
     assert.equal(monthlyPayment(1200, { ...program, apr: 0, term_months: 12 }), 100);
+  });
+
+  it('computes the retail-vs-standard comparison from footage alone', () => {
+    // 187 x $52 retail vs 187 x $35 LumaGlow — the exact figures from the spec.
+    const result = calculateQuote({
+      ...base,
+      linearFeet: 187,
+      pricePerFoot: 35,
+      controllerPrice: 0,
+      pricing: { ...pricing, retail_price_per_ft: 52, standard_price_per_ft: 35 },
+    });
+
+    assert.equal(result.retailComparison.retailValue, 9724);
+    assert.equal(result.retailComparison.standardValue, 6545);
+    assert.equal(result.retailComparison.savings, 3179);
+    assert.equal(result.retailComparison.enabled, true);
+  });
+
+  it('excludes adders, controller and tax from the retail comparison', () => {
+    const result = calculateQuote({
+      ...base,
+      linearFeet: 100,
+      pricePerFoot: 35,
+      controllerPrice: 500,
+      adders: [{ catalog_item_id: null, name: 'Double Track', unit: 'per_foot', unit_price: 4, quantity: 1 }],
+      pricing: { ...pricing, retail_price_per_ft: 52, standard_price_per_ft: 35, tax_rate: 0.08 },
+    });
+
+    // Retail comparison stays pure footage math even though the real total
+    // (with the adder, controller and tax) is well above $3,500.
+    assert.equal(result.retailComparison.standardValue, 3500);
+    assert.ok(result.total > result.retailComparison.standardValue);
+  });
+
+  it('is disabled when the company turns the comparison off', () => {
+    const result = calculateQuote({
+      ...base,
+      pricing: { ...pricing, show_retail_comparison: false },
+    });
+    assert.equal(result.retailComparison.enabled, false);
   });
 });

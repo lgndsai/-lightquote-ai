@@ -1,12 +1,13 @@
 import Link from 'next/link';
 
-export const metadata = { title: 'Admin — LightQuote AI' };
+export const metadata = { title: 'Admin — LumaGlow' };
 
 const SECTIONS = [
-  { href: '/admin/company', title: 'Company', body: 'Name, logo, brand colors, contact details, warranty and proposal benefits.' },
-  { href: '/admin/pricing', title: 'Pricing', body: 'Price per foot, minimums, tax, dealer fees and the three proposal levels.' },
-  { href: '/admin/catalog', title: 'Catalog', body: 'Controllers, track colors, adders and discounts offered on every quote.' },
+  { href: '/admin/company', title: 'Company', body: 'Name, logo, brand colors, contact details and warranty copy.' },
+  { href: '/admin/pricing', title: 'Pricing', body: 'Retail and standard price per foot, tax, dealer fees and value labels.' },
+  { href: '/admin/catalog', title: 'Catalog', body: 'Track colors and adders reps can add to a quote.' },
   { href: '/admin/finance', title: 'Finance programs', body: 'Terms, APR or payment factor, dealer fee and minimum amount.' },
+  { href: '/admin/marketing', title: 'Marketing', body: 'The value cards, statistics, sources and benefits shown on every proposal.' },
   { href: '/admin/users', title: 'Users', body: 'Invite teammates and set admin, manager or sales rep access.' },
 ];
 

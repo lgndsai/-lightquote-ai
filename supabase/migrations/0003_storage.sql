@@ -1,26 +1,29 @@
 -- =====================================================================
 -- Storage buckets + policies
 --
--- property-photos / renders : public READ (unguessable uuid paths) so the
---   n8n workflow and the customer-facing screens can load images without a
---   signing round-trip on every render.
--- proposals : PRIVATE, served through short-lived signed URLs.
+-- property-photos / renders / proposals : PRIVATE. Homeowner photographs,
+--   AI renders and generated proposals are never reachable by a bare URL —
+--   every read goes through a signed URL minted at request time from a
+--   caller who has already passed RLS on storage.objects.
+-- branding : public READ. Company logos need to render on the signed-out
+--   login screen, so this bucket alone stays public.
 --
--- Writes on every bucket are restricted to authenticated users whose
--- company_id matches the first path segment: {company_id}/{quote_id}/{file}
+-- Writes on every private bucket are restricted to authenticated users
+-- whose company_id matches the first path segment:
+-- {company_id}/{quote_id}/{file}
 -- =====================================================================
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values
-  ('property-photos', 'property-photos', true,  20971520,
+  ('property-photos', 'property-photos', false, 20971520,
    array['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']),
-  ('renders', 'renders', true, 20971520,
+  ('renders', 'renders', false, 20971520,
    array['image/jpeg', 'image/png', 'image/webp']),
   ('branding', 'branding', true, 5242880,
    array['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml']),
   ('proposals', 'proposals', false, 20971520,
    array['application/pdf', 'text/html'])
-on conflict (id) do nothing;
+on conflict (id) do update set public = excluded.public;
 
 -- Deny rather than error when the first path segment isn't a uuid.
 create or replace function public.storage_company_matches(p_name text)
@@ -65,12 +68,16 @@ create policy "tenant delete own folder" on storage.objects
   );
 
 -- ----------------------------------------------------------------- reads
--- Private bucket: only the owning company can read (signed URLs are minted
--- server-side with the caller's session, so this still applies).
-create policy "tenant read proposals" on storage.objects
+-- Every private bucket is scoped to the caller's own company folder —
+-- signed URLs still evaluate against this policy, so a rep can never mint a
+-- working URL for another tenant's object even if they guessed the path.
+create policy "tenant read own images" on storage.objects
   for select to authenticated
-  using (bucket_id = 'proposals' and public.storage_company_matches(name));
+  using (
+    bucket_id in ('property-photos', 'renders', 'proposals')
+    and public.storage_company_matches(name)
+  );
 
-create policy "tenant read images" on storage.objects
-  for select to authenticated
-  using (bucket_id in ('property-photos', 'renders', 'branding'));
+-- branding is the one public bucket (logos render on the signed-out login
+-- screen); storage.objects RLS is bypassed entirely for public buckets, so
+-- no read policy is needed for it here.

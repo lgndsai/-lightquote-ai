@@ -1,7 +1,11 @@
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { requireSession, type Session } from '@/lib/auth';
+import { signedUrls } from '@/lib/storage';
 import type { Customer, Design, Property, Quote } from '@/lib/types/db';
+
+const PHOTO_BUCKET = 'property-photos';
+const RENDER_BUCKET = 'renders';
 
 export interface QuoteContext {
   session: Session;
@@ -44,7 +48,30 @@ export async function getQuoteContext(quoteId: string): Promise<QuoteContext> {
     .eq('quote_id', quoteId)
     .order('created_at', { ascending: true });
 
-  const designs = (designRows ?? []) as Design[];
+  const rawDesigns = (designRows ?? []) as Design[];
+
+  // property-photos and renders are private buckets — every *_url is minted
+  // fresh from its *_path here rather than trusted from the stored column,
+  // so a stale or tampered URL can never leak an image across tenants.
+  const photoPaths = rawDesigns.flatMap((d) =>
+    [d.original_image_path, d.marked_image_path].filter((p): p is string => Boolean(p)),
+  );
+  const renderPaths = rawDesigns
+    .map((d) => d.rendered_image_path)
+    .filter((p): p is string => Boolean(p));
+
+  const [photoUrls, renderUrls] = await Promise.all([
+    signedUrls(supabase, PHOTO_BUCKET, photoPaths),
+    signedUrls(supabase, RENDER_BUCKET, renderPaths),
+  ]);
+
+  const designs = rawDesigns.map((d) => ({
+    ...d,
+    original_image_url: d.original_image_path ? (photoUrls[d.original_image_path] ?? null) : null,
+    marked_image_url: d.marked_image_path ? (photoUrls[d.marked_image_path] ?? null) : null,
+    rendered_image_url: d.rendered_image_path ? (renderUrls[d.rendered_image_path] ?? null) : null,
+  }));
+
   const baseDesign = designs.find((d) => !d.preset) ?? null;
   const selectedDesign =
     designs.find((d) => d.id === rest.selected_design_id) ??

@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { LoginForm } from './LoginForm';
 
-export const metadata = { title: 'Sign in — LightQuote AI' };
+export const metadata = { title: 'Sign in — LumaGlow' };
 
 export default async function LoginPage({
   searchParams,
@@ -16,7 +16,7 @@ export default async function LoginPage({
         <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-accent/15 ring-1 ring-accent/40">
           <span className="text-2xl">✦</span>
         </div>
-        <h1 className="text-3xl font-semibold tracking-tight text-white">LightQuote AI</h1>
+        <h1 className="text-3xl font-semibold tracking-tight text-white">LumaGlow</h1>
         <p className="mt-2 text-sm text-muted-dark">
           Design, visualize and sell in under five minutes.
         </p>

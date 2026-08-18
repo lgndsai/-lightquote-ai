@@ -1,41 +1,21 @@
 import { createClient } from '@/lib/supabase/server';
 import type { CatalogItem, CompanyPricing, FinanceProgram, ProposalLevel } from '@/lib/types/db';
 
-/** Fallback used only until an admin saves their own settings. */
+/**
+ * Fallback used only until an admin saves their own settings.
+ *
+ * The simplified LumaGlow quoting flow doesn't ask the rep to pick a tier —
+ * standard_price_per_ft is the single per-foot rate — so this is one level
+ * with no delta. The mechanism (admin-editable JSON, price_per_foot_delta)
+ * is left in place in case a company ever wants tiered systems again.
+ */
 export const DEFAULT_PROPOSAL_LEVELS: ProposalLevel[] = [
   {
-    key: 'essential',
-    name: 'Essential',
-    description: 'Front elevation coverage with the core system.',
-    price_per_foot_delta: -3,
-    features: ['Front roofline coverage', 'Warm white + color modes', 'App control', 'Lifetime LED warranty'],
-  },
-  {
-    key: 'signature',
-    name: 'Signature',
-    description: 'Full front and side coverage with premium track.',
+    key: 'standard',
+    name: 'LumaGlow Permanent Lighting',
+    description: 'Professionally installed permanent architectural lighting.',
     price_per_foot_delta: 0,
-    features: [
-      'Front and side rooflines',
-      'Full RGBW color spectrum',
-      'Scheduling and scenes',
-      'Color-matched track',
-      'Lifetime LED warranty',
-    ],
-  },
-  {
-    key: 'whole_home',
-    name: 'Whole Home',
-    description: 'Complete perimeter coverage, every feature enabled.',
-    price_per_foot_delta: 4,
-    features: [
-      'Complete perimeter coverage',
-      'Full RGBW color spectrum',
-      'Scheduling, scenes and music sync',
-      'Color-matched track',
-      'Priority service',
-      'Lifetime LED warranty',
-    ],
+    features: [],
   },
 ];
 
@@ -92,21 +72,43 @@ export async function loadPricingConfig(companyId: string): Promise<PricingConfi
 }
 
 export function findLevel(levels: ProposalLevel[], key: string | null | undefined) {
-  return levels.find((l) => l.key === key) ?? levels.find((l) => l.key === 'signature') ?? levels[0] ?? null;
+  return levels.find((l) => l.key === key) ?? levels.find((l) => l.key === 'standard') ?? levels[0] ?? null;
+}
+
+/**
+ * Pins standard_price_per_ft to the rate already locked into a saved quote,
+ * rather than whatever the company's live pricing config says right now.
+ *
+ * Without this, a company editing standard_price_per_ft between "measure"
+ * and "present/proposal" would make the retail-comparison stat
+ * (linearFeet x standard_price_per_ft) drift away from the quote's real
+ * footageSubtotal/total, which are still keyed off the locked
+ * quote.price_per_foot. Only used for re-displaying an already-saved quote —
+ * saveQuotePricing itself intentionally reads the live config, since that's
+ * the moment the rate gets locked in.
+ */
+export function pinPricingToQuote(pricing: CompanyPricing, quotePricePerFoot: number): CompanyPricing {
+  return { ...pricing, standard_price_per_ft: quotePricePerFoot };
 }
 
 function emptyPricing(companyId: string): CompanyPricing {
   return {
     id: '',
     company_id: companyId,
-    suggested_price_per_foot: 0,
-    min_price_per_foot: 0,
+    suggested_price_per_foot: 35,
+    min_price_per_foot: 28,
     controller_price: 0,
     tax_rate: 0,
     tax_on_labor: true,
     labor_percent_of_price: 0.5,
     dealer_fee_percent: 0,
     minimum_job_price: 0,
+    retail_price_per_ft: 52,
+    standard_price_per_ft: 35,
+    show_retail_comparison: true,
+    retail_label: 'Retail Value',
+    selling_price_label: 'LumaGlow Price',
+    savings_label: 'Your Savings',
     proposal_levels: DEFAULT_PROPOSAL_LEVELS,
     created_at: '',
     updated_at: '',

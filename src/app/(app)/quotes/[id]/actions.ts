@@ -4,17 +4,14 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { requireSession } from '@/lib/auth';
-import { findLevel, loadPricingConfig } from '@/lib/pricing/load';
-import {
-  calculateQuote,
-  fromQuoteAdder,
-  toSelectedDiscount,
-  type SelectedAdder,
-} from '@/lib/pricing/engine';
+import { findLevel, loadPricingConfig, pinPricingToQuote } from '@/lib/pricing/load';
+import { calculateQuote, fromQuoteAdder, type SelectedAdder } from '@/lib/pricing/engine';
 import { renderProposalHtml } from '@/lib/proposal/html';
 import { sendDealSold } from '@/lib/n8n';
 import { getQuoteContext } from '@/lib/quotes';
 import { formatDate } from '@/lib/format';
+import { signedUrl, PROPOSAL_IMAGE_EXPIRY_SECONDS } from '@/lib/storage';
+import { loadMarketingConfig, calculateLongTermComparison } from '@/lib/marketing';
 import type { CatalogItem, FinanceProgram, Proposal, QuoteAdder } from '@/lib/types/db';
 
 export interface SaveQuoteState {
@@ -27,16 +24,12 @@ export interface SaveQuoteState {
 const schema = z.object({
   quote_id: z.string().uuid(),
   linear_feet: z.coerce.number().min(0).max(100000),
-  price_per_foot: z.coerce.number().min(0).max(10000),
   track_color: z.string().max(120).nullable().optional(),
-  controller_item_id: z.string().uuid().nullable().optional(),
-  proposal_level: z.string().max(40).optional(),
   financing: z.coerce.boolean().optional(),
   finance_program_id: z.string().uuid().nullable().optional(),
   adders: z
     .array(z.object({ catalog_item_id: z.string().uuid(), quantity: z.coerce.number().min(0).max(999) }))
     .default([]),
-  discount_ids: z.array(z.string().uuid()).default([]),
   notes: z.string().max(4000).nullable().optional(),
 });
 
@@ -45,9 +38,10 @@ export type SaveQuoteInput = z.input<typeof schema>;
 /**
  * Single write path for quote pricing.
  *
- * The browser sends selections only. Prices come from the company catalog
- * and the totals are recomputed here, so a tampered client cannot move a
- * number on the contract.
+ * The browser sends only footage, track color, selected adder ids/quantities
+ * and a finance program id — never a price. The per-foot rate always comes
+ * from company_pricing.standard_price_per_ft and every total is recomputed
+ * here, so a tampered client can never move a number on the contract.
  */
 export async function saveQuotePricing(input: SaveQuoteInput): Promise<SaveQuoteState> {
   const session = await requireSession();
@@ -71,9 +65,7 @@ export async function saveQuotePricing(input: SaveQuoteInput): Promise<SaveQuote
 
   const config = await loadPricingConfig(session.company.id);
 
-  const catalogById = new Map<string, CatalogItem>(
-    [...config.adders, ...config.controllers, ...config.trackColors, ...config.discounts].map((i) => [i.id, i]),
-  );
+  const catalogById = new Map<string, CatalogItem>(config.adders.map((i) => [i.id, i]));
 
   const selectedAdders: SelectedAdder[] = data.adders.flatMap(({ catalog_item_id, quantity }) => {
     const item = catalogById.get(catalog_item_id);
@@ -89,26 +81,18 @@ export async function saveQuotePricing(input: SaveQuoteInput): Promise<SaveQuote
     ];
   });
 
-  const selectedDiscounts = data.discount_ids.flatMap((id) => {
-    const item = catalogById.get(id);
-    return item && item.kind === 'discount' ? [toSelectedDiscount(item)] : [];
-  });
-
-  const controller = data.controller_item_id ? catalogById.get(data.controller_item_id) : undefined;
-  const controllerPrice = controller ? Number(controller.price) : config.pricing.controller_price;
-
   const financeProgram: FinanceProgram | null =
     config.financePrograms.find((p) => p.id === data.finance_program_id) ?? null;
 
-  const level = findLevel(config.proposalLevels, data.proposal_level);
+  const level = findLevel(config.proposalLevels, 'standard');
 
   const result = calculateQuote({
     linearFeet: data.linear_feet,
-    pricePerFoot: data.price_per_foot,
-    controllerPrice,
+    pricePerFoot: config.pricing.standard_price_per_ft,
+    controllerPrice: 0,
     proposalLevel: level,
     adders: selectedAdders,
-    discounts: selectedDiscounts,
+    discounts: [],
     financing: Boolean(data.financing),
     financeProgram,
     pricing: config.pricing,
@@ -118,16 +102,16 @@ export async function saveQuotePricing(input: SaveQuoteInput): Promise<SaveQuote
     .from('quotes')
     .update({
       linear_feet: data.linear_feet,
-      price_per_foot: data.price_per_foot,
+      price_per_foot: config.pricing.standard_price_per_ft,
       track_color: data.track_color ?? null,
-      controller_name: controller?.name ?? null,
-      controller_price: result.controllerPrice,
-      proposal_level: level?.key ?? 'signature',
+      controller_name: null,
+      controller_price: 0,
+      proposal_level: level?.key ?? 'standard',
       financing_selected: Boolean(data.financing),
       finance_program_id: financeProgram?.id ?? null,
       footage_subtotal: result.footageSubtotal,
       adders_total: result.addersTotal,
-      discount_total: result.discountTotal,
+      discount_total: 0,
       dealer_fee: result.dealerFee,
       subtotal: result.subtotal,
       tax_rate: result.taxRate,
@@ -135,7 +119,7 @@ export async function saveQuotePricing(input: SaveQuoteInput): Promise<SaveQuote
       total: result.total,
       monthly_payment: result.monthlyPayment,
       pricing_breakdown: result as unknown as Record<string, unknown>,
-      selected_discount_ids: selectedDiscounts.map((d) => d.catalog_item_id).filter(Boolean),
+      selected_discount_ids: [],
       notes: data.notes ?? null,
     })
     .eq('id', data.quote_id);
@@ -193,7 +177,10 @@ export async function createProposal(quoteId: string): Promise<ProposalState> {
 
   if (!quote.linear_feet) return { error: 'Add the system measurements first.' };
 
-  const config = await loadPricingConfig(quote.company_id);
+  const [config, marketing] = await Promise.all([
+    loadPricingConfig(quote.company_id),
+    loadMarketingConfig(quote.company_id),
+  ]);
   const level = findLevel(config.proposalLevels, quote.proposal_level);
 
   const { data: adderRows } = await supabase.from('quote_adders').select('*').eq('quote_id', quoteId);
@@ -207,13 +194,13 @@ export async function createProposal(quoteId: string): Promise<ProposalState> {
     controllerPrice: Number(quote.controller_price),
     proposalLevel: level,
     adders,
-    discounts: config.discounts
-      .filter((d) => (quote.selected_discount_ids ?? []).includes(d.id))
-      .map(toSelectedDiscount),
+    discounts: [],
     financing: quote.financing_selected,
     financeProgram: program,
-    pricing: config.pricing,
+    pricing: pinPricingToQuote(config.pricing, Number(quote.price_per_foot)),
   });
+
+  const comparison = calculateLongTermComparison(marketing, pricing.retailComparison.standardValue);
 
   // Reuse the existing proposal number so a revised document keeps its identity.
   const { data: existing } = await supabase
@@ -226,6 +213,20 @@ export async function createProposal(quoteId: string): Promise<ProposalState> {
 
   const proposalNumber = existing?.proposal_number ?? `P-${quote.quote_number.replace(/^LQ-/, '')}`;
 
+  // The stored HTML is a static snapshot that may be opened months later, so
+  // its embedded hero image gets its own long-lived signed URL rather than
+  // reusing the short-lived one this page view was rendered with.
+  const heroImageUrl = ctx.selectedDesign?.rendered_image_path
+    ? await signedUrl(supabase, 'renders', ctx.selectedDesign.rendered_image_path, PROPOSAL_IMAGE_EXPIRY_SECONDS)
+    : ctx.baseDesign?.marked_image_path
+      ? await signedUrl(
+          supabase,
+          'property-photos',
+          ctx.baseDesign.marked_image_path,
+          PROPOSAL_IMAGE_EXPIRY_SECONDS,
+        )
+      : null;
+
   const html = renderProposalHtml({
     proposalNumber,
     company: session.company,
@@ -233,15 +234,15 @@ export async function createProposal(quoteId: string): Promise<ProposalState> {
     property,
     quote,
     pricing,
-    renderedImageUrl:
-      ctx.selectedDesign?.rendered_image_url ?? ctx.baseDesign?.marked_image_url ?? null,
-    levelName: level?.name ?? 'Signature',
-    levelFeatures: level?.features ?? [],
+    renderedImageUrl: heroImageUrl,
+    adderLabels: adders.map((a) => a.name),
     financeProgramName: program?.name ?? null,
     salesRepName: session.user.full_name ?? session.user.email,
     salesRepEmail: session.user.email,
     salesRepPhone: session.user.phone,
     issuedAt: formatDate(new Date().toISOString()),
+    marketing,
+    comparison,
   });
 
   const storagePath = `${quote.company_id}/${quote.id}/${proposalNumber}.html`;

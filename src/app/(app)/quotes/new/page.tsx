@@ -3,7 +3,7 @@ import { requireSession } from '@/lib/auth';
 import { ProgressSteps } from '@/components/ProgressSteps';
 import { NewQuoteForm } from './NewQuoteForm';
 
-export const metadata = { title: 'New quote — LightQuote AI' };
+export const metadata = { title: 'New quote — LumaGlow' };
 
 export default async function NewQuotePage() {
   await requireSession();

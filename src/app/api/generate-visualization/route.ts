@@ -3,9 +3,14 @@ import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/lib/auth';
 import { isVisualizationConfigured, sendVisualizationRequest } from '@/lib/n8n';
+import { signedUrl } from '@/lib/storage';
 import type { Design } from '@/lib/types/db';
 
 export const runtime = 'nodejs';
+
+const PHOTO_BUCKET = 'property-photos';
+/** Long enough for n8n to fetch the source images even on a slow render queue. */
+const N8N_IMAGE_EXPIRY_SECONDS = 60 * 60;
 
 const schema = z.object({
   design_id: z.string().uuid(),
@@ -40,8 +45,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Design not found.' }, { status: 404 });
   }
 
-  const originalImageUrl = source.original_image_url;
-  if (!originalImageUrl) {
+  if (!source.original_image_path) {
     return NextResponse.json({ error: 'Upload a property photo first.' }, { status: 400 });
   }
 
@@ -57,9 +61,7 @@ export async function POST(request: Request) {
         quote_id: source.quote_id,
         property_id: source.property_id,
         original_image_path: source.original_image_path,
-        original_image_url: originalImageUrl,
         marked_image_path: source.marked_image_path,
-        marked_image_url: source.marked_image_url,
         roofline_coordinates: source.roofline_coordinates,
         lighting_style: preset,
         preset,
@@ -78,7 +80,7 @@ export async function POST(request: Request) {
   } else {
     const { error: updateError } = await supabase
       .from('designs')
-      .update({ status: 'processing', error_message: null, rendered_image_url: null })
+      .update({ status: 'processing', error_message: null, rendered_image_path: null })
       .eq('id', design.id);
 
     if (updateError) {
@@ -101,12 +103,27 @@ export async function POST(request: Request) {
     );
   }
 
+  // property-photos is private, so n8n gets time-boxed signed URLs rather
+  // than a public link — the images are never reachable without this token.
+  const [originalImageUrl, markedImageUrl] = await Promise.all([
+    signedUrl(supabase, PHOTO_BUCKET, design.original_image_path, N8N_IMAGE_EXPIRY_SECONDS),
+    signedUrl(supabase, PHOTO_BUCKET, design.marked_image_path, N8N_IMAGE_EXPIRY_SECONDS),
+  ]);
+
+  if (!originalImageUrl) {
+    await supabase
+      .from('designs')
+      .update({ status: 'failed', error_message: 'Could not access the property photo.' })
+      .eq('id', design.id);
+    return NextResponse.json({ error: 'Could not access the property photo.' }, { status: 500 });
+  }
+
   const result = await sendVisualizationRequest({
     design_id: design.id,
     quote_id: design.quote_id,
     company_id: design.company_id,
     original_image_url: originalImageUrl,
-    marked_image_url: design.marked_image_url,
+    marked_image_url: markedImageUrl,
     roofline_coordinates: design.roofline_coordinates,
     lighting_style: design.lighting_style,
     preset: design.preset,

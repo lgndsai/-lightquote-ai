@@ -77,21 +77,15 @@ export function PhotoCapture({
 
       if (uploadError) throw new Error(uploadError.message);
 
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from(BUCKET).getPublicUrl(path);
-
-      // One base design row per quote holds the photo, the tracing and the style.
+      // property-photos is a private bucket now — only the path is stored.
+      // Every screen mints its own short-lived signed URL at read time.
       if (designId) {
         const { error: updateError } = await supabase
           .from('designs')
           .update({
             original_image_path: path,
-            original_image_url: publicUrl,
             marked_image_path: null,
-            marked_image_url: null,
             rendered_image_path: null,
-            rendered_image_url: null,
             roofline_coordinates: [],
             status: 'pending',
             error_message: null,
@@ -104,7 +98,6 @@ export function PhotoCapture({
           quote_id: quoteId,
           property_id: propertyId,
           original_image_path: path,
-          original_image_url: publicUrl,
           status: 'pending',
         });
         if (insertError) throw new Error(insertError.message);
@@ -119,7 +112,7 @@ export function PhotoCapture({
   }, [companyId, designId, existingUrl, file, propertyId, quoteId, router]);
 
   return (
-    <div className="fixed inset-0 flex flex-col bg-ink">
+    <div className="fixed inset-0 flex flex-col bg-luma-surface">
       <input
         ref={cameraRef}
         type="file"
@@ -152,7 +145,7 @@ export function PhotoCapture({
             <span className="relative mb-6 flex h-20 w-20 items-center justify-center">
               <span className="pulse-ring absolute inset-0 rounded-full bg-accent/25" />
               <span className="relative flex h-20 w-20 items-center justify-center rounded-full bg-white/8 ring-1 ring-white/15">
-                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#C8A24A" strokeWidth="1.6">
+                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#E0299B" strokeWidth="1.6">
                   <path d="M3 8a2 2 0 0 1 2-2h2l1.2-2h7.6L17 6h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
                   <circle cx="12" cy="12.5" r="3.5" />
                 </svg>

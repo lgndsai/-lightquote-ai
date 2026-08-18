@@ -1,12 +1,13 @@
 import { notFound } from 'next/navigation';
 import { requireSession } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
+import { signedUrl } from '@/lib/storage';
 import { AppHeader } from '@/components/AppHeader';
 import { ProjectDetail } from './ProjectDetail';
 import type { Customer, Design, Project, Property, Quote } from '@/lib/types/db';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Project — LightQuote AI' };
+export const metadata = { title: 'Project — LumaGlow' };
 
 export default async function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -27,6 +28,15 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
     quotes: Quote | null;
     designs: Design | null;
   };
+
+  // renders is a private bucket — mint a fresh signed URL rather than
+  // trusting whatever the raw row happened to carry.
+  if (row.designs?.rendered_image_path) {
+    row.designs = {
+      ...row.designs,
+      rendered_image_url: await signedUrl(supabase, 'renders', row.designs.rendered_image_path),
+    };
+  }
 
   return (
     <>
