@@ -1,0 +1,112 @@
+@import "tailwindcss";
+
+/* =====================================================================
+   LightQuote AI design tokens
+
+   Two moods on purpose:
+     - "ink"  : deep, cinematic surfaces for the customer-facing screens
+                (photo, design, visualization, presentation, proposal)
+     - "paper": clean and fast for the rep/admin working screens
+   ===================================================================== */
+
+@theme {
+  --color-paper: #f6f7f9;
+  --color-card: #ffffff;
+  --color-line: #e4e7ec;
+  --color-ink: #0b0f19;
+  --color-ink-soft: #131a2a;
+  --color-ink-line: #232c40;
+  --color-muted: #667085;
+  --color-muted-dark: #93a0b8;
+
+  --color-brand: #0b0f19;
+  --color-accent: #c8a24a;
+  --color-accent-soft: #e6cf94;
+
+  --color-ok: #0e9f6e;
+  --color-warn: #d97706;
+  --color-danger: #dc2626;
+  --color-info: #2563eb;
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --radius-xl2: 1.25rem;
+}
+
+:root {
+  color-scheme: light;
+  /* Overridden per-company at runtime by <BrandProvider>. */
+  --brand-primary: #0b0f19;
+  --brand-accent: #c8a24a;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  /* Never bounce-scroll a full-screen photo on iOS. */
+  overscroll-behavior-y: none;
+}
+
+/* Respect the iPhone notch / home indicator everywhere. */
+.pt-safe { padding-top: max(0.75rem, env(safe-area-inset-top)); }
+.pb-safe { padding-bottom: max(0.75rem, env(safe-area-inset-bottom)); }
+.mb-safe { margin-bottom: env(safe-area-inset-bottom); }
+
+/* Touch behaviour: big targets, no accidental text selection, no 300ms delay. */
+button,
+[role="button"],
+a {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.no-select {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+input,
+select,
+textarea {
+  /* 16px minimum stops iOS Safari from zooming on focus. */
+  font-size: 16px;
+}
+
+@keyframes shimmer {
+  0% { background-position: -600px 0; }
+  100% { background-position: 600px 0; }
+}
+
+.shimmer {
+  background: linear-gradient(90deg, #1a2234 0%, #2a3550 50%, #1a2234 100%);
+  background-size: 600px 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+
+@keyframes pulse-ring {
+  0%   { transform: scale(0.85); opacity: 0.7; }
+  70%  { transform: scale(1.35); opacity: 0; }
+  100% { transform: scale(1.35); opacity: 0; }
+}
+
+.pulse-ring { animation: pulse-ring 2s cubic-bezier(0.25, 0.6, 0.4, 1) infinite; }
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.rise { animation: rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+@media print {
+  .no-print { display: none !important; }
+  body { background: #ffffff; }
+}
