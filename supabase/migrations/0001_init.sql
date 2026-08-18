@@ -130,6 +130,9 @@ create table public.quotes (
   monthly_payment   numeric(12, 2) not null default 0,
   pricing_breakdown jsonb not null default '{}'::jsonb,
 
+  -- catalog ids of the discounts applied, so re-opening restores the selection
+  selected_discount_ids jsonb not null default '[]'::jsonb,
+
   notes        text,
   presented_at timestamptz,
   sold_at      timestamptz,

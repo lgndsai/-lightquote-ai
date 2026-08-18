@@ -150,6 +150,7 @@ export interface Quote {
   total: number;
   monthly_payment: number;
   pricing_breakdown: Record<string, unknown>;
+  selected_discount_ids: string[];
   notes: string | null;
   presented_at: string | null;
   sold_at: string | null;
