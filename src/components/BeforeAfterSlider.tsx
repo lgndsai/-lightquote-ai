@@ -51,15 +51,11 @@ export function BeforeAfterSlider({
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={afterUrl} alt="With lighting" className="h-full w-full object-contain" draggable={false} />
 
-      <div className="absolute inset-0 overflow-hidden" style={{ width: `${position}%` }}>
+      {/* Clipping rather than resizing keeps the "before" image the exact
+          same size as the "after" one, so the two always register. */}
+      <div className="absolute inset-0" style={{ clipPath: `inset(0 ${100 - position}% 0 0)` }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={beforeUrl}
-          alt="Before"
-          className="h-full w-full object-contain"
-          draggable={false}
-          style={{ width: frameRef.current?.clientWidth ? `${frameRef.current.clientWidth}px` : '100%', maxWidth: 'none' }}
-        />
+        <img src={beforeUrl} alt="Before" className="h-full w-full object-contain" draggable={false} />
       </div>
 
       <span className="pointer-events-none absolute left-3 top-3 rounded-full bg-black/55 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-white/90 backdrop-blur">

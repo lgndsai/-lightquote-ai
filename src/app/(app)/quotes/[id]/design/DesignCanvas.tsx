@@ -34,7 +34,11 @@ export function DesignCanvas({ imageUrl, style, strokes, tool, onChange, onCommi
   const [aspect, setAspect] = useState<number | null>(null);
   const [imageReady, setImageReady] = useState(false);
 
-  strokesRef.current = strokes;
+  // Pointer handlers read the latest strokes through a ref; this effect is
+  // declared first so the ref is current before the repaint effect runs.
+  useEffect(() => {
+    strokesRef.current = strokes;
+  }, [strokes]);
 
   // Repaint on any change to strokes, style or layout.
   const repaint = useCallback(() => {

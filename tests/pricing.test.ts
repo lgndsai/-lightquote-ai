@@ -12,6 +12,7 @@ const pricing: CompanyPricing = {
   tax_rate: 0.0825,
   tax_on_labor: true,
   labor_percent_of_price: 0.5,
+  dealer_fee_percent: 0,
   minimum_job_price: 0,
   proposal_levels: [],
   created_at: '',
