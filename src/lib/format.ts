@@ -69,15 +69,10 @@ export const PROJECT_STATUS_STYLE: Record<ProjectStatus, string> = {
   cancelled: 'bg-rose-100 text-rose-700',
 };
 
-/** Where an in-progress quote should resume. */
-export function quoteResumeHref(quote: {
-  id: string;
-  status: QuoteStatus;
-  linear_feet: number;
-  selected_design_id: string | null;
-}) {
-  if (quote.status === 'sold') return `/quotes/${quote.id}/proposal`;
-  if (!quote.selected_design_id) return `/quotes/${quote.id}/photo`;
-  if (!quote.linear_feet) return `/quotes/${quote.id}/measure`;
-  return `/quotes/${quote.id}/present`;
+/**
+ * All quote cards route through /quotes/[id], which inspects the quote's
+ * real state server-side and forwards to the right step.
+ */
+export function quoteResumeHref(quote: { id: string }) {
+  return `/quotes/${quote.id}`;
 }

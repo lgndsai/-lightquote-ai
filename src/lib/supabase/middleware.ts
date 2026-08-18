@@ -43,6 +43,10 @@ export async function updateSession(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (!user && !isPublic(pathname)) {
+    // API callers get a status they can act on, not a login page.
+    if (pathname.startsWith('/api/')) {
+      return NextResponse.json({ error: 'Not authenticated.' }, { status: 401 });
+    }
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     url.searchParams.set('next', pathname);
