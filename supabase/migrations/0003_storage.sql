@@ -16,6 +16,8 @@ values
    array['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']),
   ('renders', 'renders', true, 20971520,
    array['image/jpeg', 'image/png', 'image/webp']),
+  ('branding', 'branding', true, 5242880,
+   array['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml']),
   ('proposals', 'proposals', false, 20971520,
    array['application/pdf', 'text/html'])
 on conflict (id) do nothing;
@@ -34,25 +36,25 @@ grant execute on function public.storage_company_matches(text) to authenticated;
 create policy "tenant insert own folder" on storage.objects
   for insert to authenticated
   with check (
-    bucket_id in ('property-photos', 'renders', 'proposals')
+    bucket_id in ('property-photos', 'renders', 'proposals', 'branding')
     and public.storage_company_matches(name)
   );
 
 create policy "tenant update own folder" on storage.objects
   for update to authenticated
   using (
-    bucket_id in ('property-photos', 'renders', 'proposals')
+    bucket_id in ('property-photos', 'renders', 'proposals', 'branding')
     and public.storage_company_matches(name)
   )
   with check (
-    bucket_id in ('property-photos', 'renders', 'proposals')
+    bucket_id in ('property-photos', 'renders', 'proposals', 'branding')
     and public.storage_company_matches(name)
   );
 
 create policy "tenant delete own folder" on storage.objects
   for delete to authenticated
   using (
-    bucket_id in ('property-photos', 'renders', 'proposals')
+    bucket_id in ('property-photos', 'renders', 'proposals', 'branding')
     and public.storage_company_matches(name)
   );
 
@@ -65,4 +67,4 @@ create policy "tenant read proposals" on storage.objects
 
 create policy "tenant read images" on storage.objects
   for select to authenticated
-  using (bucket_id in ('property-photos', 'renders'));
+  using (bucket_id in ('property-photos', 'renders', 'branding'));

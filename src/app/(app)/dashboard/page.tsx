@@ -84,6 +84,13 @@ export default async function DashboardPage({
             <Stat label="Sold this period" value={String(soldCount)} />
             <Stat label="Contract value" value={formatCurrency(soldValue)} />
           </div>
+          <Link
+            href="/projects"
+            className="mt-3 flex min-h-13 items-center justify-between rounded-2xl border border-line bg-card px-4 font-semibold text-ink shadow-sm"
+          >
+            Installs &amp; projects
+            <span aria-hidden className="text-muted">›</span>
+          </Link>
         </section>
 
         <nav className="sticky top-[68px] z-20 -mx-4 mt-6 bg-paper/90 px-4 py-2 backdrop-blur-xl">
