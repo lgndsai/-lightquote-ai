@@ -54,10 +54,13 @@ export function VisualizationResult({
     [designs],
   );
 
-  // Keep preset chips live while their renders finish.
+  const hasPending = designs.some((d) => d.status === 'pending' || d.status === 'processing');
+
+  // Keep preset chips live while their renders finish. Depending on the
+  // boolean rather than the array stops the channel from being torn down and
+  // rebuilt on every poll tick.
   useEffect(() => {
-    const pending = designs.some((d) => d.status === 'pending' || d.status === 'processing');
-    if (!pending) return;
+    if (!hasPending) return;
 
     const supabase = createClient();
 
@@ -88,7 +91,7 @@ export function VisualizationResult({
       clearInterval(poll);
       void supabase.removeChannel(channel);
     };
-  }, [designs, quoteId]);
+  }, [hasPending, quoteId]);
 
   const choosePreset = useCallback(
     async (preset: string) => {

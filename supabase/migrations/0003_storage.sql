@@ -22,12 +22,18 @@ values
    array['application/pdf', 'text/html'])
 on conflict (id) do nothing;
 
+-- Deny rather than error when the first path segment isn't a uuid.
 create or replace function public.storage_company_matches(p_name text)
 returns boolean
 language sql
 stable
 as $$
-  select nullif((storage.foldername(p_name))[1], '')::uuid = public.current_company_id();
+  select case
+    when (storage.foldername(p_name))[1] ~*
+         '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+    then (storage.foldername(p_name))[1]::uuid = public.current_company_id()
+    else false
+  end;
 $$;
 
 grant execute on function public.storage_company_matches(text) to authenticated;
